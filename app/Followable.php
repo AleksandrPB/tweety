@@ -7,6 +7,10 @@ namespace App;
 trait Followable
 {
 
+    /**
+     * @param User $user
+     * @return mixed
+     */
     public function following(User $user)
     {
         //  get a collection of every one that current user follows and check if it contains a given user
@@ -16,6 +20,9 @@ trait Followable
             ->exists();
     }
 
+    /**
+     * @return mixed
+     */
     public function follows()
     {
         //  we provide explicit name of table - not following the convention user_user
@@ -27,8 +34,33 @@ trait Followable
             'following_user_id');
     }
 
+    /**
+     * @param User $user
+     * @return mixed
+     */
     public function follow(User $user)
     {
         return $this->follows()->save($user);
+    }
+
+    /**
+     * @param User $user
+     * @return mixed
+     */
+    public function unfollow(User $user)
+    {
+        return $this->follows()->detach($user);
+    }
+
+    /**
+     * @param User $user
+     * @return mixed
+     */
+    public function toggleFollow(User $user)
+    {
+        if ($this->following($user)) {
+            return $this->unfollow($user);
+        }
+        return $this->follow($user);
     }
 }
