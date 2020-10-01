@@ -31,7 +31,7 @@ class TweetController extends Controller
             //
         ]);
         //  redirect back to home
-        return redirect('/home');
+        return redirect()->route('home');
     }
 
 }
