@@ -42,12 +42,13 @@ class User extends Authenticatable
      */
     public function getAvatarAttribute() //custom accessor
     {
-        return "https://i.pravatar.cc/200?u=" . $this->email;
+        return "https://api.adorable.io/avatars/" . $this->email;
     }
 
     public function tweets()
     {
-        return $this->hasMany(Tweet::class);
+        return $this->hasMany(Tweet::class)
+            ->latest();
     }
 
     /**
@@ -62,4 +63,11 @@ class User extends Authenticatable
             ->latest()->get();
     }
 
+    /**
+     * @return string
+     */
+    public function path()
+    {
+        return route('profile', $this->name);
+    }
 }
