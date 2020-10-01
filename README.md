@@ -1085,7 +1085,7 @@ return $this->follows()
 
 We don't have yet functionality to Unfollow. Depending of how we architecture application we have some ways to do this.
 
-1. Single form and single endpoint
+1. Single form and single endpoint - you choose that
 
 2. Two different forms (more RESTful way) 
 
@@ -1094,10 +1094,93 @@ We don't have yet functionality to Unfollow. Depending of how we architecture ap
    ```
 
    Two different endpoint one submits post request to follow another submits delete request to Unfollow.
+   
+3. View component
+
+4. Livewire component
+
+We toggle it In the FollowsController but before it we need to define unfollow() method and toggleFollow() in Followable trait
+
+```php
+/**
+     * @param User $user
+     * @return mixed
+     */
+    public function unfollow(User $user)
+    {
+        return $this->follows()->detach($user);
+    }
+
+    /**
+     * @param User $user
+     * @return mixed
+     */
+    public function toggleFollow(User $user)
+    {
+        if ($this->following($user)) {
+            return $this->unfollow($user);
+        }
+        return $this->follow($user);
+    }
+```
+
+And redefine store method in controller with that new method
+
+```php
+public function store(User $user)
+    {
+        //  have the authenticated user follow the given user
+        auth()->user()->toggleFollow($user);
+
+        return back();
+    }
+```
+
+As a next step we can extract Follow\Unfollow button into component, **but we need to pass user object - anonymous blade component**
+
+```html
+<x-follow-button :user="$user"></x-follow-button>
+```
+
+```html
+<form method="post" action="/profiles/{{ $user->name }}/follow">
+    @csrf
+
+    <button
+        type="submit"
+        class="bg-blue-500 rounded-full shadow py-4 px-2 text-white texts-xs"
+    >
+        {{auth()->user()->following($user) ? 'Unfollow Me' : 'Follow Me'}}
+    </button>
+</form>
+```
+
+We add path method in User model, so we define single place where we declare it and do refactoring of the view.
+
+```php
+public function path()
+{
+    return route('profile', $this->name);
+}
+```
+
+Also we need to redefine our redirection in TweetController store() method. because we already obtain named routes
+
+```php
+return redirect()->route('home');
+```
+
+And in the order to see in profile latest tweet first we redefine our tweets() method in User model
+
+```php
+public function tweets()
+{
+    return $this->hasMany(Tweet::class)
+        ->latest();
+}
+```
 
 ## Credentials
-
-<p align="center"><img src="https://res.cloudinary.com/dtfbvvkyp/image/upload/v1566331377/laravel-logolockup-cmyk-red.svg" width="400"></p>
 
 <p align="center">
 <a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
@@ -1155,6 +1238,6 @@ In order to ensure that the Laravel community is welcoming to all, please review
 
 If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
 
-## License
+### License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
