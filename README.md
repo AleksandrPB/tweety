@@ -1,3 +1,5 @@
+[TOC]
+
 ## Tweeter Clone Project
 
 ## 1 Setup
