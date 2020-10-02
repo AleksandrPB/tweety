@@ -64,10 +64,12 @@ class User extends Authenticatable
     }
 
     /**
+     * @param string $append
      * @return string
      */
-    public function path()
+    public function path($append = '')
     {
-        return route('profile', $this->name);
+        $path =  route('profile', $this->name);
+        return $append ? "{$path}/{$append}" : $path;
     }
 }
