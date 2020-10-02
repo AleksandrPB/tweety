@@ -1182,6 +1182,143 @@ public function tweets()
 }
 ```
 
+## 9. Profile Authorization Logic
+
+Define condition on which we show follow\unfollow button in the view with blade syntax
+
+```php+HTML
+@unless(current_user()->is($user))
+<form method="post" action="/profiles/{{ $user->name }}/follow">
+    @csrf
+
+    <button
+        type="submit"
+        class="bg-blue-500 rounded-full shadow py-4 px-2 text-white texts-xs"
+    >
+        {{auth()->user()->following($user) ? 'Unfollow Me' : 'Follow Me'}}
+    </button>
+</form>
+@endunless
+```
+
+Define condition on which we show edit/profile button in the view with blade syntax 
+
+```php+HTML
+@if(current_user()->is($user))
+                <a
+                    href=""
+                    class="rounded-full border border-gray-300 py-4 px-2 text-black text-l mr-2"
+                >
+                    Edit Profile
+                </a>
+                @endif
+```
+
+In situation when we want to add global helper function. Create app/helpers.php and create helper function 
+
+```php
+function current_user()
+{
+    return auth()->user();
+}
+```
+
+Add it to composer.json in autoload:
+
+```json
+"autoload": {
+    "psr-4": {
+        "App\\": "app/"
+    },
+    "classmap": [
+        "database/seeds",
+        "database/factories"
+    ],
+    "files": [
+        "app/helpers.php"
+    ]
+},
+```
+
+And do `composer dump-autoload`.
+
+Now we add functionality for edit button by adding link
+
+```php+HTML
+href="{{ $user->path('edit') }}"
+```
+
+Now we need to revise our path() method in User model
+
+```php
+/**
+ * @param string $append
+ * @return string
+ */
+public function path($append = '')
+{
+    $path =  route('profile', $this->name);
+    return $append ? "{$path}/{$append}" : $path;
+}
+```
+
+Next we create new route in middleware auth group (laravel 7 and below)
+
+```php
+Route::get('/profiles/{user:name}/edit', 'ProfilesController@edit');
+```
+
+Define new method
+
+```php
+protected function edit(User $user)
+{
+    return view('profiles.edit', compact('user'));
+}
+```
+
+And create new view profiles/edit.blade.php. Now we need a restriction for editing not authorized profiles that we obtain if we manually access.
+
+First option is to define it explicitly in controller and return 404 
+
+```php
+abort_if($user->isNot(current_user()), 404);
+```
+
+Second and more good practice is to create new policy and define new rule for edit()
+
+```php
+public function edit(User $currentUser, User $user)
+{
+    return $currentUser->is($user);
+}
+```
+
+Next we have two approaches to catch it:
+
+And we catch this exception with laravel tools in model
+
+```php
+$this->authorize('edit', $user);
+```
+
+Or we can define it in route
+
+```php
+Route::get(
+    '/profiles/{user:name}/edit',
+    'ProfilesController@edit'
+)->middleware('can:edit,user'); // can we edit this wildcard named 'name'
+```
+
+In addition when we create policy we can get rid-off helper function in the view for edit button
+
+```php
+@can('edit', $user)
+/*...*/
+@endcan
+```
+
 ## Credentials
 
 <p align="center">
