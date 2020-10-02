@@ -25,6 +25,10 @@ Route::middleware('auth')->group(function (){
     Route::get('/tweets', 'TweetController@index')->name('home');
 
     Route::post('/profiles/{user:name}/follow', 'FollowsController@store');
+    Route::get(
+        '/profiles/{user:name}/edit',
+        'ProfilesController@edit'
+    )->middleware('can:edit,user'); // can we edit this wildcard named 'name'
 });
 
 Route::get('/profiles/{user:name}', 'ProfilesController@show')->name('profile');
