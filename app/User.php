@@ -16,7 +16,7 @@ class User extends Authenticatable
      * @var array
      */
     protected $fillable = [
-        'name', 'email', 'password',
+        'username', 'avatar', 'name', 'email', 'password',
     ];
 
     /**
@@ -38,11 +38,12 @@ class User extends Authenticatable
     ];
 
     /**
+     * @param $value
      * @return string
      */
-    public function getAvatarAttribute() //custom accessor
+    public function getAvatarAttribute($value) //custom accessor
     {
-        return "https://api.adorable.io/avatars/" . $this->email;
+        return asset('/storage/'.$value);
     }
 
     public function tweets()
@@ -69,7 +70,7 @@ class User extends Authenticatable
      */
     public function path($append = '')
     {
-        $path =  route('profile', $this->name);
+        $path =  route('profile', $this->username);
         return $append ? "{$path}/{$append}" : $path;
     }
 }
