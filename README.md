@@ -1319,6 +1319,292 @@ In addition when we create policy we can get rid-off helper function in the view
 @endcan
 ```
 
+## 10. File Storage and Custom Avatars
+
+Let's revise our user migration
+
+```php
+Schema::create('users', function (Blueprint $table) {
+    $table->id();
+    $table->string('username')->unique();
+    $table->string('name');
+    $table->text('avatar')->nullable();
+    $table->string('email')->unique();
+    $table->timestamp('email_verified_at')->nullable();
+    $table->string('password');
+    $table->rememberToken();
+    $table->timestamps();
+});
+```
+
+And recreate all tables in database `php artisan migrate:fresh`
+
+No we add new field for username in registration form
+
+```php+HTML
+<div class="form-group row">
+    <label for="name" class="col-md-4 col-form-label text-md-right">Username</label>
+
+    <div class="col-md-6">
+        <input id="username" type="text" class="form-control @error('username') is-invalid @enderror" name="username" value="{{ old('username') }}" required autocomplete="username" autofocus>
+
+        @error('username')
+        <span class="invalid-feedback" role="alert">
+                <strong>{{ $message }}</strong>
+            </span>
+        @enderror
+    </div>
+</div>
+```
+
+Next step is to update RegisterController validate and create fields
+
+```php
+return Validator::make($data, [
+    'username' => [
+        'required',
+        'string',
+        'max:255',
+        'unique:users', //  check for duplication in users table
+        'alpha_dash'    //  validation rule that exclude spaces
+    ],
+    'name' => ['required', 'string', 'max:255'],
+    'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+    'password' => ['required', 'string', 'min:8', 'confirmed'],
+]);
+```
+
+```
+return User::create([
+    'username' => $data['username'],
+    'name' => $data['name'],
+    'email' => $data['email'],
+    'password' => Hash::make($data['password']),
+]);
+```
+
+In User model fillable fields add attributes that could be mass-assigned
+
+```php
+protected $fillable = [
+    'username', 'name', 'email', 'password',
+];
+```
+
+Update method path()
+
+```php
+$path =  route('profile', $this->username);
+```
+
+The update all routes to refer to username as a key, not  a name
+
+```php
+Route::middleware('auth')->group(function (){
+    Route::post('/tweets', 'TweetController@store');
+    Route::get('/tweets', 'TweetController@index')->name('home');
+
+    Route::post('/profiles/{user:username}/follow', 'FollowsController@store');
+    Route::get(
+        '/profiles/{user:username}/edit',
+        'ProfilesController@edit'
+    )->middleware('can:edit,user'); // can we edit this wildcard named 'username'
+});
+
+Route::get('/profiles/{user:username}', 'ProfilesController@show')->name('profile');
+```
+
+Now we define our edit form with PATCH request https://tools.ietf.org/html/rfc5789 - partial resource modification.
+
+```php+HTML
+<x-app>
+    <form method="POST" action="{{ $user->path() }}">
+        @csrf
+        {{--Submit PATCH request to users endpoint rfc5789--}}
+        @method('PATCH')
+        <div class="mb-6">
+            <label class="block mb-2 uppercase font-bold text-xs text-gray-700" for="name">Name</label>
+            <input class="border border-gray-400 p-2 w-full"
+                   type="text"
+                   name="name"
+                   id="name"
+                   value="{{ $user->name }}"
+                   required
+                   >
+            @error('name')
+                <p class="text-red-500 text-xs mt-2">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="mb-6">
+            <label class="block mb-2 uppercase font-bold text-xs text-gray-700" for="username">Username</label>
+            <input class="border border-gray-400 p-2 w-full"
+                   type="text"
+                   name="username"
+                   id="username"
+                   value="{{ $user->username }}"
+                   required
+            >
+            @error('username')
+            <p class="text-red-500 text-xs mt-2">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="mb-6">
+            <label class="block mb-2 uppercase font-bold text-xs text-gray-700" for="email">Email</label>
+            <input class="border border-gray-400 p-2 w-full"
+                   type="email"
+                   name="email"
+                   id="email"
+                   value="{{ $user->email }}"
+                   required
+            >
+            @error('email')
+            <p class="text-red-500 text-xs mt-2">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="mb-6">
+            <label class="block mb-2 uppercase font-bold text-xs text-gray-700" for="password">Password</label>
+            <input class="border border-gray-400 p-2 w-full"
+                   type="password"
+                   name="password"
+            >
+            @error('password')
+            <p class="text-red-500 text-xs mt-2">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="mb-6">
+            <label class="block mb-2 uppercase font-bold text-xs text-gray-700"
+                   for="password_confirmation">Password Confirmation</label>
+            <input class="border border-gray-400 p-2 w-full"
+                   type="password"
+                   name="password_confirmation"
+                   id="password_confirmation"
+            >
+            @error('password_confirmation')
+            <p class="text-red-500 text-xs mt-2">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="mb-6">
+            <button type="submit"
+                    class="bg-blue-400 text-white rounded py-2 px-4 hover:bg-blue-500">
+                Submit
+            </button>
+        </div>
+    </form>
+</x-app>
+```
+
+Now we need to create endpoint
+
+```php
+Route::patch('/profiles/{user:username}', 'ProfilesController@update');
+```
+
+Create new method update in ProfilesController
+
+```php
+public function update(User $user)
+{
+    $attributes = request()->validate([
+        'username' => [
+            'string',
+            'required',
+            'max:255',
+            Rule::unique('users')->ignore($user),
+            'alpha_dash'
+        ],
+        'name' => [
+            'required',
+            'string',
+            'max:255'
+        ],
+        'email' => [
+            'required',
+            'string',
+            'email',
+            'max:255',
+            Rule::unique('users')->ignore($user)
+        ],
+        'password' => [
+            'required',
+            'string',
+            'min:8',
+            'confirmed'],
+    ]);
+
+    $user->update($attributes);
+
+    return redirect($user->path());
+}
+```
+
+Now we need to add avatar update to our form
+
+```php+HTML
+<div class="mb-6">
+    <label class="block mb-2 uppercase font-bold text-xs text-gray-700" for="avatar">Avatar</label>
+    <input class="border border-gray-400 p-2 w-full"
+           type="file"
+           name="avatar"
+           id="avatar"
+           required
+    >
+    @error('avatar')
+    <p class="text-red-500 text-xs mt-2">{{ $message }}</p>
+    @enderror
+</div>
+```
+
+After we submit we get an UploadedFile instance. Add this attribute to validation
+
+```php
+'avatar' => [
+    'required',
+    'file'
+],
+```
+
+And store in database the path for stored avatar in avatars/
+
+```php
+$attributes['avatar'] = request('avatar')->store('avatars');
+```
+
+And make it fillable in model
+
+```php
+protected $fillable = [
+    'username', 'avatar', 'name', 'email', 'password',
+];
+```
+
+In config/filesystems.php we can define storage system for files. To choose what we need set it in .env
+
+```bash
+FILESYSTEM_DRIVER=public
+```
+
+Next step is to create simlink from storage/public to actual public directory
+
+```bash
+php artisan storage:link
+The [/var/www/tweety/public/storage] link has been connected to [/var/www/tweety/storage/app/public].
+The links have been created.
+```
+
+Now we end up with revising our method in  User model to access proper place
+
+```php
+public function getAvatarAttribute($value) //custom accessor
+{
+    return asset('/storage/'.$value);
+}
+```
+
 ## Credentials
 
 <p align="center">
