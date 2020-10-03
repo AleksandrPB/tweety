@@ -19,19 +19,31 @@ Route::get('/', function () {
 });
 
 
+Route::middleware('auth')->group(function () {
 
-Route::middleware('auth')->group(function (){
     Route::post('/tweets', 'TweetController@store');
+
     Route::get('/tweets', 'TweetController@index')->name('home');
 
-    Route::post('/profiles/{user:username}/follow', 'FollowsController@store');
+    Route::post(
+        '/profiles/{user:username}/follow',
+        'FollowsController@store'
+    )->name('follow');
+
     Route::get(
         '/profiles/{user:username}/edit',
         'ProfilesController@edit'
     )->middleware('can:edit,user'); // can we edit this wildcard named 'username'
-    Route::patch('/profiles/{user:username}', 'ProfilesController@update');
+
+    Route::patch(
+        '/profiles/{user:username}',
+        'ProfilesController@update'
+    )->middleware('can:edit,user');
+
+    Route::get('/explore', 'ExploreController@index');
 });
 
 Route::get('/profiles/{user:username}', 'ProfilesController@show')->name('profile');
+
 
 Auth::routes();

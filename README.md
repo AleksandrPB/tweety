@@ -1605,6 +1605,127 @@ public function getAvatarAttribute($value) //custom accessor
 }
 ```
 
+## 11. Build the Explore Users Page
+
+Our password is not hashed. We can add custom mutator in model
+
+```php
+//  $user->password = 'foobar'
+//  it will first be piped through this method
+public function setPasswordAttribute($value)
+{
+    $this->attributes['password'] = bcrypt($value);
+}
+```
+
+Next we need to make avatar optional in ProfileController update method
+
+```php
+'avatar' => [
+    'file'
+],
+```
+
+And store it only if it present
+
+```php
+if (request('avatar')) {
+    $attributes['avatar'] = request('avatar')->store('avatars');
+}
+```
+
+Next let's revise our toggleFollow method with cleaner code
+
+```php
+public function toggleFollow(User $user)
+{
+    $this->follows()->toggle($user);
+}
+```
+
+Next notice that if we want to edit an existing Profile we added a necessary middleware 
+
+```php
+Route::patch(
+    '/profiles/{user:username}',
+    'ProfilesController@update'
+)->middleware('can:edit,user');
+```
+
+Next we need to implement explore page.
+
+1. Set Route in auth group
+
+   ```php
+   Route::get('/explore', 'ExploreController@index');
+   ```
+
+2. Create controller and method 
+
+   ```php
+   class ExploreController extends Controller
+   {
+       public function index()
+       {
+           return view('explore');
+       }
+   }
+   ```
+
+3. Create view explore.blade.php
+
+4. In explore controller pass through to view users instances 
+
+   ```php
+   public function index()
+   {
+       return view('explore', [
+           'users' => User::paginate(50),
+       ]);
+   }
+   ```
+
+5. Define view 
+
+   ```php
+   <x-app>
+       <div>
+           @foreach($users as $user)
+               <a href="{{ $user->path() }}" class="flex items-center mb-5">
+                   <img
+                       src="{{ $user->avatar }}"
+                       alt="{{ $user->username }}'s avatar"
+                       width="60"
+                       height="60"
+                       class="mr-4 rounded"
+                   >
+                   <div>
+                       <h4 class="font-bold"> {{ '@' . $user->name }}</h4>
+                   </div>
+               </a>
+           @endforeach
+       </div>
+   </x-app>
+   ```
+
+6. Update follow-button 
+
+   ```php+HTML
+   <form method="POST"
+         action="{{ route('follow', $user->username) }}">
+   ```
+
+7. Update routes
+
+   ```php
+   Route::post(
+       '/profiles/{user:username}/follow',
+       'FollowsController@store'
+   )->name('follow');
+   ```
+
+   
+
 ## Credentials
 
 <p align="center">

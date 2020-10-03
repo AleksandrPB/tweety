@@ -38,12 +38,12 @@ class User extends Authenticatable
     ];
 
     /**
-     * @param $value
+     *
      * @return string
      */
-    public function getAvatarAttribute($value) //custom accessor
+    public function getAvatarAttribute() //custom accessor
     {
-        return asset('/storage/'.$value);
+        return ('https://api.adorable.io/avatars/150/' . $this->email);
     }
 
     public function tweets()

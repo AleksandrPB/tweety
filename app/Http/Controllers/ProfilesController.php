@@ -52,7 +52,7 @@ class ProfilesController extends Controller
         ]);
 
         if (request('avatar')) {
-            $attributes['avatar'] = request('avatar')->store('avatars');
+            $attributes['avatar'] = request('avatar')->store('public/storage/avatars');
         }
 
         $user->update($attributes);
