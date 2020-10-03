@@ -52,6 +52,14 @@ class User extends Authenticatable
             ->latest();
     }
 
+    //  $user->password = 'foobar'
+    //  it will first be piped through this method
+    public function setPasswordAttribute($value)
+    {
+        $this->attributes['password'] = bcrypt($value);
+    }
+
+
     /**
      * @return mixed
      */
