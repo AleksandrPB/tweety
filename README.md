@@ -1851,11 +1851,127 @@ Next we need to implement explore page.
    <a href="{{ $user->path() }}" class="hover: underline">Cancel</a>
    ```
 
+## 13. Build a Like/Dislike System
 
+### 13.1 Likes Table Migration
 
+1. ```bash
+   root@43c4b04a340f:/var/www/tweety# php artisan make:migration create_likes_table
+   ```
 
+   ```php
+   public function up()
+       {
+           Schema::create('likes', function (Blueprint $table) {
+               $table->id();
+               //  laravel 7+ approach to setup link and cascade
+               $table->foreignId('user_id')
+                   ->constrained()
+                   ->onDelete('cascade');
+               $table->foreignId('tweet_id')
+                   ->constrained()
+                   ->onDelete('cascade');;
+                   
+               $table->boolean('liked'); // 0 disliked
+               $table->timestamps();
+               //  traditional way to setup link
+   //            $table->foreign('user_id')
+   //                ->references('id')
+   //                ->on('users')
+   //                ->onDelete('cascade');
+           });
+       }
+   ```
 
+### 13.2 MySQL Play
 
+Our query for likes/dislikes will look like that
+
+```sql
+SELECT tweet_id, sum(liked) likes, sum(!liked) dislikes from likes
+group by tweet_id;
+```
+
+And query for all tweets will look like that
+
+```sql
+SELECT * from tweets
+left join (
+    SELECT tweet_id, sum(liked) likes, sum(!liked) dislikes from likes group by tweet_id
+    ) likes on likes.tweet_id = tweets.id;
+```
+
+### 13.3 Eloquent Behaviour
+
+In Tweet model we add behavior:
+
+1. Set up relationship in Tweet and User model 
+
+   ```php
+   public function likes()
+   {
+       return $this->hasMany(Like::class);
+   }
+   ```
+
+2. Create Like model and extend Eloquent model abstract class
+
+3. In Tweet model setup like() and dislike() methods. First we need to go back to migration and add unique constraint: 
+
+   ```php
+   			//  unique constraint on index
+               //  we protected from situation when we have both like and dislike
+               $table->unique(['user_id', 'tweet_id']);
+   ```
+
+   In methods like instead of create() we will utilize method updateOrCreate() and accept $liked parameter as default true. With that approach we can simplify dislike method to call like method with constant false parameter. Also for cleaner API  for fetching user_id we can accept $user as a parameter but not requiring it.
+
+   ```php
+   public function like($user = null, $liked = true)
+       {
+           // Create Like model instance
+           $this->likes()->updateOrCreate(
+               [
+                   'user_id' => $user ? $user->id : auth()->id(),
+               ],
+               [
+                   'liked' => $liked
+               ]);
+       }
+   
+       public function dislike($user = null)
+       {
+           return $this->like($user, false);
+       }
+   ```
+
+   Now we add methods for check for likes and dislikes 
+
+   ```php
+   public function isLikedBy(User $user)
+       {
+           //  we can go through all of the likes and check for presence
+           //  but if we go through the loop it give us a n+1 problem
+   //        $this->likes()->where('user_id', $user->id)->exists();
+   
+           //  instead we can grab likes from users, and every single tweet
+           //  we are not going to run database query
+           return (bool) $user->likes
+               ->where('tweet_id', $this->id)
+               ->where('liked', true)
+               ->count();
+       }
+   
+       public function isDislikedBy (User $user)
+       {
+           return (bool) $user->likes
+               ->where('tweet_id', $this->id)
+               ->where('liked', false)
+               ->count();
+       }
+   ```
+
+   And extract all relative to like system method into trait Likeable.
 
 ## Credentials
 
