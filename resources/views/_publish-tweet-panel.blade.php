@@ -1,13 +1,15 @@
-<div class="border border-blue-400 rounded-lg p-8  mb-8">
+<div class="border border-blue-400 rounded-lg p-8 mb-8">
     <form method="post" action="/tweets">
         @csrf
                     <textarea
                         name="body"
                         class="w-full"
                         placeholder="What's up doc?"
+                        required
+                        autofocus
                     ></textarea>
         <hr class="my-4">
-        <footer class="flex justify-between">
+        <footer class="flex justify-between items-center">
             <img
                 src="{{auth()->user()->avatar}}"
                 alt=""
@@ -17,7 +19,7 @@
             >
             <button
                 type="submit"
-                class="bg-blue-500 rounded-lg shadow py-2 px-2 text-white"
+                class="bg-blue-400 shadow px-10 h-10 text-white text-sm rounded-lg hover:bg-blue-500"
             >Tweet-a-roo!
             </button>
         </footer>
