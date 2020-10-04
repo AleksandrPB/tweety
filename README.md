@@ -1726,6 +1726,137 @@ Next we need to implement explore page.
 
    
 
+## 12. Clean Up
+
+1. Login form and register form revised. 
+
+   ```php+HTML
+   <div class="container mx-auto flex justify-center">    <div class="px-12 py-8 bg-gray-200 border border-gray-300 rounded-lg">        <div class="col-md-8">            <div class="font-bold text-xl mb-4 py-4">{{ __('Login') }}                <div class="ard-body py-2">                    <form method="POST" action="{{ route('login') }}">                        @csrf                        <div class="mb-6">                            <label class="block mb-2 uppercase font-bold text-xs text-gray-700"                                   for="email"                            >                                Email                            </label>​                            <input class="border border-gray-400 p-2 w-full"                                   type="text"                                   name="email"                                   id="email"                                   autocomplete="email"                                   value="{{ old('email') }}"                            >​                            @error('email')                            <p class="text-red-500 text-xs mt-2">{{ $message }}</p>                            @enderror                        </div>                        .....
+   ```
+
+2. _friends.list 
+
+   ```php+HTML
+   div class="px-12 py-4 bg-gray-200 border border-gray-300 rounded-lg">
+       <h3 class="font-bold text-xl mb-4">Following</h3>
+           <ul>
+               @forelse(auth()->user()->follows as $user)
+                   <li class="{{ $loop->last ? '' : 'mb-4'}}">
+   ```
+
+3. _publish-tweet 
+
+   ```php+HTML
+   @csrf
+   <textarea
+   	name="body"
+   	class="w-full"
+   	placeholder="What's up doc?"
+   	required
+       autofocus
+                   ...
+   <footer class="flex justify-between items-center">
+   ...
+   <button
+   	type="submit"
+   	class="bg-blue-400 shadow px-10 h-10 text-white text-sm rounded-lg hover:bg-blue-500"
+   	>Tweet-a-roo!
+   </button>
+   ```
+
+4. The explore controller is descend candidate for invokable controller. **Invocable controller** - controller that have single action. We can create it with magic method The [__invoke()](https://www.php.net/manual/en/language.oop5.magic.php#object.invoke) method is called when a script tries to    call an object as a function.   
+
+   ```php
+   Route::get('/explore', 'ExploreController');
+   ```
+
+   ```php
+   public function __invoke()
+       {
+           return view('explore', [
+               'users' => User::paginate(50),
+           ]);
+       }
+   ```
+
+5. _timeline pagination 
+
+   ```php+HTML
+   @include('_timeline',[
+       'tweets' => tweets
+       ])
+   ```
+
+   In ProfilesController we revise method show() 
+
+   ```php
+   public function show(User $user)
+   {
+       return view('profiles.show', [
+           'user' => $user,
+           'tweets' => $user->tweets()->paginate(3)
+       ]);
+   }
+   ```
+
+   In _timeline add links and publish pagination - it allows us to be in control of that
+
+   ```php+HTML
+       {{ $tweets->links() }}
+   ```
+
+   in bootstrap-4 
+
+   ```php+HTML
+   @if ($paginator->hasPages())
+       <nav>
+           <ul class="flex justify-between w-64 p-4 mx-auto">
+               ...
+               @if ($page == $paginator->currentPage())
+                               <li class="page-item active text-blue-400 hover:text-blue-500"
+                                   aria-current="page"
+                               >
+                                   <span class="page-link">{{ $page }}</span></li>
+                           @else
+   ```
+
+   in User model 
+
+   ```php
+   public function timeline()
+   {
+       $friends = $this->follows()->pluck('id');
+   
+       return Tweet::whereIn('user_id', $friends)
+           ->orWhere('user_id', $this->id)
+           ->latest()
+           ->paginate(50);
+   }
+   ```
+
+6. _sidebar links logout button 
+
+   ```php+HTML
+   <li>
+       <form method="POST" action="/logout">
+           @csrf
+       <button class="font-bold text-lg">Logout</button>
+       </form>
+   </li>
+   ```
+
+7. edit profile cancel link 
+
+   ```php+HTML
+   <a href="{{ $user->path() }}" class="hover: underline">Cancel</a>
+   ```
+
+
+
+
+
+
+
 ## Credentials
 
 <p align="center">
