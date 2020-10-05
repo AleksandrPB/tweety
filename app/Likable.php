@@ -4,8 +4,28 @@
 namespace App;
 
 
+use Illuminate\Database\Eloquent\Builder;
+
 trait Likable
 {
+    public function scopeWithLikes(Builder $query)   // type hint for Eloquent query builder
+    {
+        /*Initial query
+        SELECT * from tweets
+        left join (
+                SELECT tweet_id, sum(liked) likes, sum(!liked) dislikes from likes group by tweet_id
+        ) likes on likes.tweet_id = tweets.id;*/
+
+//    SELECT * from tweets - we already work with tweets and we can skip that
+//    left join ( - we need to reproduce this with Eloquent tools
+        $query->leftJoinSub(
+            'SELECT tweet_id, sum(liked) likes, sum(!liked) dislikes from likes group by tweet_id',
+            'likes',
+            'likes.tweet_id',
+            'tweets.id'
+        );
+    }
+
     public function like($user = null, $liked = true)
     {
         // Create Like model instance
