@@ -1905,75 +1905,230 @@ left join (
 
 In Tweet model we add behavior:
 
-1. Set up relationship in Tweet and User model 
+Set up relationship in Tweet and User model 
 
-   ```php
-   public function likes()
-   {
-       return $this->hasMany(Like::class);
-   }
-   ```
+```php
+public function likes()
+{
+    return $this->hasMany(Like::class);
+}
+```
 
-2. Create Like model and extend Eloquent model abstract class
+Create Like model and extend Eloquent model abstract class
 
-3. In Tweet model setup like() and dislike() methods. First we need to go back to migration and add unique constraint: 
+In Tweet model setup like() and dislike() methods. First we need to go back to migration and add unique constraint: 
 
-   ```php
-   			//  unique constraint on index
-               //  we protected from situation when we have both like and dislike
-               $table->unique(['user_id', 'tweet_id']);
-   ```
+```php
+			//  unique constraint on index
+            //  we protected from situation when we have both like and dislike
+            $table->unique(['user_id', 'tweet_id']);
+```
 
-   In methods like instead of create() we will utilize method updateOrCreate() and accept $liked parameter as default true. With that approach we can simplify dislike method to call like method with constant false parameter. Also for cleaner API  for fetching user_id we can accept $user as a parameter but not requiring it.
+In methods like instead of create() we will utilize method updateOrCreate() and accept $liked parameter as default true. With that approach we can simplify dislike method to call like method with constant false parameter. Also for cleaner API  for fetching user_id we can accept $user as a parameter but not requiring it.
 
-   ```php
-   public function like($user = null, $liked = true)
-       {
-           // Create Like model instance
-           $this->likes()->updateOrCreate(
-               [
-                   'user_id' => $user ? $user->id : auth()->id(),
-               ],
-               [
-                   'liked' => $liked
-               ]);
-       }
-   
-       public function dislike($user = null)
-       {
-           return $this->like($user, false);
-       }
-   ```
+```php
+public function like($user = null, $liked = true)
+    {
+        // Create Like model instance
+        $this->likes()->updateOrCreate(
+            [
+                'user_id' => $user ? $user->id : auth()->id(),
+            ],
+            [
+                'liked' => $liked
+            ]);
+    }
 
-   Now we add methods for check for likes and dislikes 
+    public function dislike($user = null)
+    {
+        return $this->like($user, false);
+    }
+```
 
-   ```php
-   public function isLikedBy(User $user)
-       {
-           //  we can go through all of the likes and check for presence
-           //  but if we go through the loop it give us a n+1 problem
-   //        $this->likes()->where('user_id', $user->id)->exists();
-   
-           //  instead we can grab likes from users, and every single tweet
-           //  we are not going to run database query
-           return (bool) $user->likes
-               ->where('tweet_id', $this->id)
-               ->where('liked', true)
-               ->count();
-       }
-   
-       public function isDislikedBy (User $user)
-       {
-           return (bool) $user->likes
-               ->where('tweet_id', $this->id)
-               ->where('liked', false)
-               ->count();
-       }
-   ```
+Now we add methods for check for likes and dislikes 
 
-   And extract all relative to like system method into trait Likeable.
+```php
+public function isLikedBy(User $user)
+    {
+        //  we can go through all of the likes and check for presence
+        //  but if we go through the loop it give us a n+1 problem
+//        $this->likes()->where('user_id', $user->id)->exists();
+
+        //  instead we can grab likes from users, and every single tweet
+        //  we are not going to run database query
+        return (bool) $user->likes
+            ->where('tweet_id', $this->id)
+            ->where('liked', true)
+            ->count();
+    }
+
+    public function isDislikedBy (User $user)
+    {
+        return (bool) $user->likes
+            ->where('tweet_id', $this->id)
+            ->where('liked', false)
+            ->count();
+    }
+```
+
+And extract all relative to like system method into trait Likeable.
+
+### 13.4 Write Markup
+
+Create our like/dislike icon in _tweet view
+
+```php+html
+<div class="flex">
+    <div class="flex items-center {{ $tweet->isLikedBy(current_user()) ? 'text-blue-500' : 'text-gray-500'}} mr-4">
+                <svg viewBox="0 0 20 20 " class="mr-1 w-3">
+                    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                        <g class="fill-current">
+                            <path
+                                d="M11.0010436,0 C9.89589787,0 9.00000024,0.886706352 9.0000002,1.99810135 L9,8 L1.9973917,8 C0.894262725,8 0,8.88772964 0,10 L0,12 L2.29663334,18.1243554 C2.68509206,19.1602453 3.90195042,20 5.00853025,20 L12.9914698,20 C14.1007504,20 15,19.1125667 15,18.000385 L15,10 L12,3 L12,0 L11.0010436,0 L11.0010436,0 Z M17,10 L20,10 L20,20 L17,20 L17,10 L17,10 Z"
+                                id="Fill-97"></path>
+                        </g>
+                    </g>
+                </svg>
+                <span class="text-xs text-gray-500">
+                    {{ $tweet->likes ?: 0 }}
+                </span>
+            </div>
+
+            <div class="flex items-center {{ $tweet->isDislikedBy(current_user()) ? 'text-blue-500' : 'text-gray-500'}}">
+                <svg viewBox="0 0 20 20 " class="mr-1 w-3">
+                    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                        <g class="fill-current">
+                            <path
+                                d="M11.0010436,20 C9.89589787,20 9.00000024,19.1132936 9.0000002,18.0018986 L9,12 L1.9973917,12 C0.894262725,12 0,11.1122704 0,10 L0,8 L2.29663334,1.87564456 C2.68509206,0.839754676 3.90195042,8.52651283e-14 5.00853025,8.52651283e-14 L12.9914698,8.52651283e-14 C14.1007504,8.52651283e-14 15,0.88743329 15,1.99961498 L15,10 L12,17 L12,20 L11.0010436,20 L11.0010436,20 Z M17,10 L20,10 L20,0 L17,0 L17,10 L17,10 Z"
+                                id="Fill-97"></path>
+                        </g>
+                    </g>
+                </svg>
+                <span class="text-xs text-gray-500">
+                    {{ $tweet->dislikes ?: 0}}
+                </span>
+    </div>
+</div>
+```
+
+### 13.5 Add the Query Scope
+
+In Likable trait we add method for dynamically building our queries. To bring AGG of likes and dislikes we reproduce our pre-designed query
+
+```php
+public function scopeWithLikes(Builder $query)   // type hint for Eloquent query builder
+    {
+        /*Initial query
+        SELECT * from tweets
+        left join (
+                SELECT tweet_id, sum(liked) likes, sum(!liked) dislikes from likes group by tweet_id
+        ) likes on likes.tweet_id = tweets.id;*/
+
+//    SELECT * from tweets - we already work with tweets and we can skip that
+//    left join ( - we need to reproduce this with Eloquent tools
+        $query->leftJoinSub(
+            'SELECT tweet_id, sum(liked) likes, sum(!liked) dislikes from likes group by tweet_id',
+            'likes',
+            'likes.tweet_id',
+            'tweets.id'
+        );
+    }
+```
+
+And now when we load Users timeline we include the likes 
+
+```php
+public function timeline()
+{
+    $friends = $this->follows()->pluck('id');
+
+    return Tweet::whereIn('user_id', $friends)
+        ->orWhere('user_id', $this->id)
+        ->withLikes()
+        ->latest()
+        ->paginate(50);
+}
+```
+
+### 13.6 Build the Forms
+
+```php+HTML
+<form method="POST" action="tweets/{{ $tweet->id }}/like">
+    @csrf
+    ...
+    <button type="submit" class="text-xs">
+                    {{ $tweet->likes ?: 0 }}
+                    </button>
+    
+    <form method="POST" action="tweets/{{ $tweet->id }}/like">
+                @csrf
+                @method('DELETE')
+        ...
+        <button type="submit" class="text-xs">
+                    {{ $tweet->dislikes ?: 0}}
+                    </button>
+```
+
+Create endpoints
+
+```php
+Route::post('/tweets/{tweet}/like', 'TweetLikesController@store');
+Route::delete('/tweets/{tweet}/like', 'TweetLikesController@destroy');
+```
+
+Create TweetLikesController and define this two methods 
+
+```php
+class TweetLikesController extends Controller
+{
+    public function store(Tweet $tweet)
+    {
+        $tweet->like(current_user());
+        return back();
+    }
+
+    public function destroy(Tweet $tweet)
+    {
+        $tweet->dislike(current_user());
+        return back();
+    }
+}
+```
+
+Extract like/dislike buttons into blade component like-buttons.blade.php
+
+```html
+<x-like-buttons :tweet="$tweet" />
+```
+
+To get rid of slow loading we add turbolink package in master
+
+```php+HTML
+<script src="http://unpkg.com/turbolinks"></script>
+```
+
+It intercepting the links, submits inject request to a server, stripes out everything except the body tag and inserts it with javascript.
+
+We need to fix profile page show method in ProfilesController to include our query
+
+```php
+public function show(User $user)
+{
+    return view('profiles.show', [
+        'user' => $user,
+        'tweets' => $user
+            ->tweets()
+            ->withLikes()
+            ->paginate(50)
+    ]);
+}
+```
+
+
 
 ## Credentials
+
+### Laravel
 
 <p align="center">
 <a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
@@ -1981,8 +2136,7 @@ In Tweet model we add behavior:
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/v/stable.svg" alt="Latest Stable Version"></a>
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://poser.pugx.org/laravel/framework/license.svg" alt="License"></a>
 </p>
-
-### About Laravel
+About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
@@ -1996,41 +2150,3 @@ Laravel is a web application framework with expressive, elegant syntax. We belie
 
 Laravel is accessible, powerful, and provides tools required for large, robust applications.
 
-### Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 1500 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-### Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[OP.GG](https://op.gg)**
-
-### Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-### Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-### Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-### License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
